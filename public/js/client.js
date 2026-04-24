@@ -11,6 +11,7 @@ TrelloPowerUp.initialize(
         appName: 'Better Todos',
         // The stylesheet URL is injected by Trello into the board page so that
         // the CSS rules apply to native Trello UI elements (e.g. checklist items).
-        stylesheet: '/css/no-strikethrough.css',
+        // Must be an absolute URL — relative paths resolve against trello.com, not this host.
+        stylesheet: window.location.origin + '/css/no-strikethrough.css',
     },
 );
