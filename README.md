@@ -1,61 +1,43 @@
-# Better Todos — Trello Power-Up
+# Better Todos for Trello — Chrome Extension
 
-Removes the strikethrough styling from completed checklist items on Trello cards.
+A Chrome extension that improves the Trello checklist experience. Customise completed items: remove strikethrough, change text colour, and add a check icon.
+
+[mcdon.co/better-todos](https://mcdon.co/better-todos)
+
+## Features
+
+- **Remove strikethrough** — completed items stay readable instead of struck out
+- **Colour customisation** — highlight done items with a preset or custom colour
+- **Check icon** — optional ✓ suffix appended to completed items
+- **Instant apply** — settings take effect on Trello immediately, no page reload needed
 
 ## How it works
 
-The Power-Up uses the `stylesheet` option in `TrelloPowerUp.initialize()`. Trello injects the specified CSS file directly into the board page, letting the rules override native Trello styles — no capabilities or API keys required.
+A content script runs on `trello.com` and injects a small stylesheet that overrides Trello's default completed checklist item styles. User preferences (strikethrough toggle, colour, check icon toggle) are stored in `chrome.storage.sync` via the extension popup.
 
 ## Project structure
 
 ```
-trello-better-todos/
-├── server.js               # Express server (serves public/ + connector HTML)
-├── package.json
-├── views/
-│   └── index.html          # Power-Up connector (hidden iframe loaded by Trello)
-└── public/
-    ├── js/
-    │   └── client.js       # TrelloPowerUp.initialize() call
-    └── css/
-        └── no-strikethrough.css  # CSS injected into the Trello board page
+extension/
+├── manifest.json       # Chrome extension manifest (MV3)
+├── content.js          # Injects styles into Trello board pages
+├── popup.html          # Extension popup UI
+├── popup.js            # Popup logic — reads/writes chrome.storage.sync
+├── content.css         # Base content styles
+└── icons/              # Extension icons (16, 48, 128, 144px)
 ```
 
-## Getting started
+## Loading locally
 
-### 1. Install dependencies
+1. Open Chrome and go to `chrome://extensions`
+2. Enable **Developer mode** (top-right toggle)
+3. Click **Load unpacked** and select the `extension/` folder
+4. Open a Trello board — the extension is active immediately
 
-```bash
-npm install
-```
+## Adjusting selectors
 
-### 2. Run locally
+If Trello updates its class names, inspect a completed checklist item in DevTools and update the selectors in `content.js` accordingly.
 
-```bash
-npm start
-```
+## Privacy
 
-The server listens on port 3000 by default (or `$PORT` if set).
-
-To expose it for local testing you can use a tunnel like [ngrok](https://ngrok.com/):
-
-```bash
-ngrok http 3000
-```
-
-### 3. Register the Power-Up with Trello
-
-1. Go to <https://trello.com/power-ups/admin> and click **Create new Power-Up**.
-2. Fill in the name (e.g. "Better Todos") and set the **Connector URL** to your public URL, e.g. `https://your-ngrok-url.ngrok.io`.
-3. Click **Save**.
-4. Enable the Power-Up on a board: open the board → **Power-Ups** → find "Better Todos" under *Custom* → **Add**.
-
-Completed checklist items will no longer display a strikethrough.
-
-## Adjusting the CSS
-
-If Trello updates its class names, inspect a completed checklist item in DevTools and update the selectors in [`public/css/no-strikethrough.css`](public/css/no-strikethrough.css) accordingly.
-
-## Deploying
-
-You can host this on any Node.js platform (Heroku, Glitch, Render, Railway, etc.). Set the `PORT` environment variable if required by the platform, and update the Connector URL in the Power-Up admin to your production URL.
+No user data is collected or transmitted. See the full privacy policy at [mcdon.co/better-todos/privacy](https://mcdon.co/better-todos/privacy).
