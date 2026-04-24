@@ -2,20 +2,12 @@
  * Better Todos — remove strikethrough from completed checklist items.
  *
  * Trello injects this stylesheet into the board page, so these rules
- * target native Trello DOM elements. Multiple selectors are included to
- * cover different versions of the Trello web client.
+ * target native Trello DOM elements.
+ *
+ * Uses data-testid attributes (stable) + :has() to scope only checked items.
  */
 
-/* Card back / checklist dialog */
-.checklist-item-state-complete .checklist-item-details-text,
-.checklist-item-state-complete .checklist-item-details-text span,
-.checklist-item-details-text.is-complete,
-.checkitem.is-checked .checklist-item-details-text,
-[data-testid="checklist-item"] [data-testid="checklist-item-name"] {
-  text-decoration: none !important;
-}
-
-/* Older Trello UI variants */
-.checklist-item.checklist-item-state-complete .checklist-item-details-text {
+/* Current Trello UI — targets the paragraph inside a checked checklist item */
+[data-testid="check-item-container"]:has(input[aria-checked="true"]) [data-testid="check-item-name"] p {
   text-decoration: none !important;
 }
