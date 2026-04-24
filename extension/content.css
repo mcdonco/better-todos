@@ -1,0 +1,11 @@
+/*
+ * Better Todos for Trello
+ * Removes strikethrough formatting from completed checklist items.
+ *
+ * The strikethrough is painted by the first div inside [data-testid="check-item-name"].
+ * CSS text-decoration painted by an ancestor cannot be cancelled on a descendant —
+ * we must target the exact element that sets it.
+ */
+[data-testid="check-item-container"]:has(input[aria-checked="true"]) [data-testid="check-item-name"] > div > div {
+  text-decoration: none !important;
+}
