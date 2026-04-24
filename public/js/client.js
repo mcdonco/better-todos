@@ -2,10 +2,18 @@
 
 TrelloPowerUp.initialize(
     {
-        // No capability handlers needed — this Power-Up only injects CSS via
-        // the stylesheet option below to remove strikethrough on completed
-        // checklist items. Add extra capability handlers here if you want to
-        // extend the Power-Up later.
+        'board-buttons': function () {
+            return [{
+                text: '✓ Better Todos',
+                condition: 'always',
+                callback: function (t) {
+                    return t.alert({
+                        message: 'Better Todos is active — strikethrough on completed checklist items is disabled.',
+                        duration: 5,
+                    });
+                },
+            }];
+        },
     },
     {
         appName: 'Better Todos',
