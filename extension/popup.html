@@ -3,86 +3,187 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Better Todos for Trello</title>
+        <title>Presto for Trello</title>
         <link rel="stylesheet" href="popup.css" />
     </head>
     <body>
-        <header>
-            <img src="icons/icon-16.png" alt="" />
-            <h1>Better Todos for Trello</h1>
-        </header>
+        <div id="popup-container">
+            <!-- ─── Main view ──────────────────────────────────── -->
+            <div id="view-main" class="view">
+                <header>
+                    <h1>Presto for Trello</h1>
+                </header>
 
-        <div class="settings">
-            <div class="row">
-                <label for="noStrikethrough">Remove strikethrough</label>
-                <label class="toggle">
-                    <input type="checkbox" id="noStrikethrough" />
-                    <span class="toggle-track"></span>
-                </label>
-            </div>
+                <div class="settings">
+                    <div class="row">
+                        <label for="noStrikethrough"
+                            >Remove strikethrough</label
+                        >
+                        <label class="toggle">
+                            <input type="checkbox" id="noStrikethrough" />
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
 
-            <div class="row">
-                <label for="showCheckIcon">Add ✓ icon after item</label>
-                <label class="toggle">
-                    <input type="checkbox" id="showCheckIcon" />
-                    <span class="toggle-track"></span>
-                </label>
-            </div>
+                    <div class="row">
+                        <label for="showCheckIcon">Add ✓ icon after item</label>
+                        <label class="toggle">
+                            <input type="checkbox" id="showCheckIcon" />
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
 
-            <div class="row color-row">
-                <label>Completed item color</label>
-                <div class="swatches">
-                    <div class="swatch" data-color="" title="Default"></div>
-                    <div
-                        class="swatch"
-                        data-color="#a6da58"
-                        style="background: #a6da58"
-                        title="Green"></div>
-                    <div
-                        class="swatch"
-                        data-color="#8abeff"
-                        style="background: #8abeff"
-                        title="Blue"></div>
-                    <div
-                        class="swatch"
-                        data-color="#94a3b8"
-                        style="background: #94a3b8"
-                        title="Grey"></div>
-                    <div
-                        class="swatch"
-                        data-color="#facc15"
-                        style="background: #facc15"
-                        title="Yellow"></div>
-                    <div
-                        class="swatch swatch-custom"
-                        title="Custom color"
-                        id="customSwatch">
-                        <input type="color" id="customColor" value="#a6da58" />
+                    <div class="row">
+                        <label for="hideComments">Hide comments panel</label>
+                        <label class="toggle">
+                            <input type="checkbox" id="hideComments" />
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+
+                    <div class="row color-row">
+                        <label>Completed item text color</label>
+                        <div class="swatches">
+                            <div
+                                class="swatch"
+                                data-color=""
+                                title="Default"></div>
+                            <div
+                                class="swatch"
+                                data-color="#a6da58"
+                                style="background: #a6da58"
+                                title="Green"></div>
+                            <div
+                                class="swatch"
+                                data-color="#cecfd2"
+                                style="background: #cecfd2"
+                                title="Grey"></div>
+                            <div
+                                class="swatch"
+                                data-color="#8abeff"
+                                style="background: #8abeff"
+                                title="Blue"></div>
+                            <label
+                                class="swatch swatch-custom"
+                                title="Custom color"
+                                id="customSwatch"
+                                data-color="__custom__">
+                                <input
+                                    type="color"
+                                    id="customColor"
+                                    value="#a6da58" />
+                            </label>
+                        </div>
                     </div>
                 </div>
+
+                <div class="section-heading"> Status badges </div>
+
+                <div class="settings">
+                    <div class="row">
+                        <label for="chipsEnabled">Use status badges</label>
+                        <label class="toggle">
+                            <input type="checkbox" id="chipsEnabled" />
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="badgesNavRow">
+                    <button
+                        id="btn-badges"
+                        class="nav-row"
+                        aria-label="Open status badges settings">
+                        <span class="nav-row-label">Status badge settings</span>
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true">
+                            <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                    </button>
+                </div>
+
+                <footer
+                    >Changes apply instantly &middot;
+                    <a
+                        href="https://www.mcdon.co/presto"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >Support</a
+                    ></footer
+                >
+            </div>
+
+            <!-- ─── Badges view ────────────────────────────────── -->
+            <div id="view-badges" class="view hidden">
+                <header>
+                    <button
+                        id="btn-back"
+                        class="icon-btn"
+                        title="Back"
+                        aria-label="Go back">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="15"
+                            height="15"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <h1>Status badges</h1>
+                </header>
+
+                <div class="chip-pack-row">
+                    <label for="chipColorsEnabled">Use color badges</label>
+                    <label class="toggle">
+                        <input type="checkbox" id="chipColorsEnabled" />
+                        <span class="toggle-track"></span>
+                    </label>
+                </div>
+
+                <div id="colorBadgesSection">
+                    <div class="chip-pack-row">
+                        <label for="chipPack">Badge color packs</label>
+                        <select id="chipPack"></select>
+                    </div>
+
+                    <div class="chip-list" id="chipList"></div>
+                </div>
+
+                <p class="hint hint-divider"
+                    >Add <code>[label]</code> to any checklist item to show a
+                    status badge — e.g. <code>Fix login bug [blocked]</code>.
+                    Users without the extension will see the original text with
+                    brackets intact.</p
+                >
+
+                <footer
+                    >Changes apply instantly &middot;
+                    <a
+                        href="https://www.mcdon.co/presto"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >Support</a
+                    ></footer
+                >
             </div>
         </div>
 
-        <div class="section-heading">Chip Packs</div>
-
-        <div class="chip-pack-row">
-            <label for="chipsEnabled">Show chip badges</label>
-            <label class="toggle">
-                <input type="checkbox" id="chipsEnabled" />
-                <span class="toggle-track"></span>
-            </label>
-        </div>
-
-        <div class="chip-pack-row">
-            <label for="chipPack">Active pack</label>
-            <select id="chipPack"></select>
-        </div>
-
-        <div class="chip-list" id="chipList"></div>
-
         <div id="saved">Saved</div>
-
-        <footer>Changes apply instantly on Trello</footer>
 
         <script src="popup.js"></script>
     </body>
