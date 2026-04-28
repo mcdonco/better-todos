@@ -23,13 +23,9 @@ header {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 14px 10px;
+    padding: 0 14px;
+    height: 44px;
     border-bottom: 1px solid #2c333a;
-}
-
-header img {
-    width: 20px;
-    height: 20px;
 }
 
 header h1 {
@@ -37,6 +33,98 @@ header h1 {
     font-weight: 600;
     color: #e2e8f0;
     letter-spacing: 0.01em;
+    flex: 1;
+}
+
+/* View navigation */
+.hidden {
+    display: none !important;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    color: #596773;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition:
+        color 0.15s,
+        background 0.15s;
+}
+
+.icon-btn:hover {
+    color: #b6c2cf;
+    background: #2c333a;
+}
+
+/* Main view chip toggle row */
+.main-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 14px;
+    border-bottom: 1px solid #2c333a;
+}
+
+.main-label {
+    display: block;
+    color: #e2e8f0;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.main-sublabel {
+    display: block;
+    font-size: 11px;
+    color: #596773;
+}
+
+/* Nav row (chevron link to sub-view) */
+.nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 14px;
+    background: none;
+    border: none;
+    border-top: 1px solid #2c333a;
+    color: #b6c2cf;
+    cursor: pointer;
+    font-size: 13px;
+    text-align: left;
+    transition: background 0.15s;
+}
+
+.nav-row:hover {
+    background: #22272b;
+}
+
+.nav-row-label {
+    flex: 1;
+}
+
+/* Hint text below nav row */
+.hint {
+    padding: 8px 14px 4px;
+    font-size: 11px;
+    color: #596773;
+    line-height: 1.5;
+}
+
+.hint code {
+    background: #2c333a;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-family: ui-monospace, 'Cascadia Code', monospace;
+    font-size: 10px;
+    color: #8abeff;
 }
 
 .settings {
@@ -193,6 +281,21 @@ footer {
     text-align: center;
 }
 
+footer a {
+    color: #596773;
+    text-underline-offset: 2px;
+}
+
+footer a:hover {
+    color: #b6c2cf;
+}
+
+.hint-divider {
+    border-top: 1px solid #2c333a;
+    padding-top: 10px;
+    margin-top: 2px;
+}
+
 #saved {
     display: none;
     font-size: 11px;
@@ -203,12 +306,28 @@ footer {
 
 /* Chip section */
 .section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #596773;
-    padding: 12px 14px 4px;
+    padding: 12px 14px 6px;
+    border-top: 1px solid #2c333a;
+}
+
+.chip-preview-inline {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.6;
+    letter-spacing: 0.03em;
+    text-transform: none;
 }
 
 .chip-pack-row {

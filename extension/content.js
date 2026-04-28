@@ -1,4 +1,4 @@
-const STYLE_ID = 'better-todos-styles';
+const STYLE_ID = 'presto-styles';
 
 const SELECTOR_DIV =
     '[data-testid="check-item-container"]:has(input[aria-checked="true"]) [data-testid="check-item-name"] > div > div';
@@ -12,8 +12,10 @@ const DEFAULTS = {
     showCheckIcon: true,
     completedColor: '#a6da58',
     chipsEnabled: true,
+    chipColorsEnabled: true,
     activeChipPack: 'qa',
     chipColors: {},
+    hideComments: false,
 };
 
 // ─── Chip pack data ───────────────────────────────────────────────────────────
@@ -34,9 +36,10 @@ function getPackById(packs, id) {
 }
 
 function buildChipMap(pack, colorOverrides) {
+    const overrides = colorOverrides || {};
     const map = {};
     for (const chip of pack.chips) {
-        map[chip.label] = colorOverrides[chip.label] || chip.color;
+        map[chip.label] = overrides[chip.label] || chip.color;
     }
     return map;
 }
@@ -51,26 +54,32 @@ function hexToRgba(hex, alpha) {
 }
 
 // Regex: matches [label] but NOT [label]( (Markdown link syntax)
-const CHIP_RE = /\[([a-z0-9-]+)\](?!\()/gi;
+// Defined as a factory so each call gets a fresh stateless instance —
+// a module-level /g regex would share lastIndex across re-entrant calls.
+function makeChipRe() {
+    return /\[([a-z0-9-]+)\](?!\()/gi;
+}
 
 let processing = false;
 
 function processTextNode(textNode, chipMap) {
     const text = textNode.nodeValue;
-    CHIP_RE.lastIndex = 0;
+    const CHIP_RE = makeChipRe();
     if (!CHIP_RE.test(text)) return; // fast exit if no tags
 
-    CHIP_RE.lastIndex = 0;
     const parent = textNode.parentNode;
+    if (!parent) return; // node was detached before we got here
+
     const frag = document.createDocumentFragment();
     let lastIndex = 0;
     let match;
 
-    CHIP_RE.lastIndex = 0;
-    while ((match = CHIP_RE.exec(text)) !== null) {
+    const RE = makeChipRe(); // fresh instance for the exec loop
+    while ((match = RE.exec(text)) !== null) {
         const label = match[1].toLowerCase();
-        const color = chipMap[label];
-        if (!color) continue; // unknown label — leave as plain text
+        const color = chipMap?.[label]; // null-safe: chipMap should never be null here, but guard anyway
+        const isKnown = !!color;
+        const chipColor = color || '#cecfd2'; // grey fallback for unknown labels
 
         // Text before this match
         if (match.index > lastIndex) {
@@ -81,11 +90,11 @@ function processTextNode(textNode, chipMap) {
 
         // Chip span
         const span = document.createElement('span');
-        span.className = 'bt-chip';
-        span.style.background = hexToRgba(color, 0.15);
-        span.style.color = color;
+        span.className = isKnown ? 'pt-chip' : 'pt-chip pt-chip-generic';
+        span.style.background = hexToRgba(chipColor, 0.15);
+        span.style.color = chipColor;
         span.textContent = label;
-        span.setAttribute('data-bt-chip', label);
+        span.setAttribute('data-pt-chip', label);
         frag.appendChild(span);
 
         lastIndex = match.index + match[0].length;
@@ -112,7 +121,7 @@ function processItem(p, chipMap) {
     }
 
     // Remove previously injected chips so we can re-process cleanly
-    p.querySelectorAll('[data-bt-chip]').forEach((el) => {
+    p.querySelectorAll('[data-pt-chip]').forEach((el) => {
         el.replaceWith(document.createTextNode(`[${el.dataset.btChip}]`));
     });
 
@@ -125,15 +134,99 @@ function processItem(p, chipMap) {
 }
 
 function processAllItems(chipMap) {
+    if (!chipMap) return;
     document
         .querySelectorAll(SELECTOR_ALL_P)
         .forEach((p) => processItem(p, chipMap));
 }
 
 function removeAllChips() {
-    document.querySelectorAll('[data-bt-chip]').forEach((el) => {
+    document.querySelectorAll('[data-pt-chip]').forEach((el) => {
         el.replaceWith(document.createTextNode(`[${el.dataset.btChip}]`));
     });
+}
+
+// ─── Click-to-apply: inline chip row ────────────────────────────────────────
+
+function currentPackChips() {
+    const chipMap = currentChipMap; // snapshot to avoid TOCTOU with concurrent init()
+    if (!cachedPacks || !chipMap) return [];
+    const pack =
+        cachedPacks.find((p) => p.id === currentPackId) || cachedPacks[0];
+    return pack.chips.map((c) => ({
+        label: c.label,
+        color: chipMap[c.label] || c.color,
+    }));
+}
+
+// toolbar = the div containing Assign / Due date / overflow buttons
+// (the parentElement of [data-testid="check-item-set-due-button"])
+function injectEditChipRow(toolbar) {
+    const form = toolbar.closest('form');
+    if (!form) return;
+    if (form.querySelector('.pt-chip-row')) return;
+
+    const chips = currentPackChips();
+    if (!chips.length) return;
+
+    const row = document.createElement('div');
+    row.className = 'pt-chip-row';
+
+    // "Remove" button — strips any pack chip from the text
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'pt-picker-item pt-picker-remove';
+    removeBtn.type = 'button';
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Remove chip';
+    removeBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        applyChipToItem(form, null);
+    });
+    row.appendChild(removeBtn);
+
+    for (const chip of chips) {
+        const btn = document.createElement('button');
+        btn.className = 'pt-picker-item';
+        btn.type = 'button';
+        btn.style.setProperty('--chip-color', chip.color);
+        btn.style.setProperty('--chip-bg', hexToRgba(chip.color, 0.15));
+        btn.textContent = chip.label;
+        btn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            applyChipToItem(form, chip.label);
+        });
+        row.appendChild(btn);
+    }
+
+    // Insert before the button container (Save/Cancel + toolbar),
+    // so the chip row sits between the textarea and the action buttons.
+    const menuItem =
+        toolbar.closest('[role="menuitem"]') || toolbar.parentElement;
+    menuItem.insertAdjacentElement('beforebegin', row);
+}
+
+// ─── Write chip back to Trello text ──────────────────────────────────────────
+
+// React ignores direct .value assignments — use the native setter to trigger onChange
+const nativeTextareaSetter = Object.getOwnPropertyDescriptor(
+    HTMLTextAreaElement.prototype,
+    'value',
+).set;
+
+function applyChipToItem(editContainer, label) {
+    const textarea = editContainer.querySelector('textarea');
+    if (!textarea) return;
+
+    // Strip all [tag] chips — both pack chips and generic ones
+    let rawText = textarea.value;
+    rawText = rawText.replace(/\s*\[[a-z0-9-]+\](?!\()/gi, '').trimEnd();
+
+    const newText = label ? `${rawText} [${label}]` : rawText;
+
+    nativeTextareaSetter.call(textarea, newText);
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.focus();
+    textarea.setSelectionRange(newText.length, newText.length);
 }
 
 // ─── CSS styles ───────────────────────────────────────────────────────────────
@@ -156,20 +249,13 @@ function buildCSS(settings) {
         css += `${SELECTOR_P}::after { content: " ✓"; }\n`;
     }
 
-    // Base chip styles (color and background are applied inline per-chip)
-    css += `.bt-chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 1px 8px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 700;
-        margin-left: 5px;
-        vertical-align: middle;
-        text-decoration: none !important;
-        line-height: 1.6;
-        letter-spacing: 0.03em;
-    }\n`;
+    if (s.hideComments) {
+        // Hide the comments/activity aside panel
+        css += `aside:has([data-testid="card-back-panel"]) { display: none !important; }\n`;
+        // Remove max-width from the main content column and checklist headings
+        css += `div:has(> [data-testid="checklist-container"]) { max-width: none !important; flex: 1 1 auto !important; }\n`;
+        css += `hgroup { max-width: none !important; }\n`;
+    }
 
     return css;
 }
@@ -188,33 +274,60 @@ function applyStyles(settings) {
 
 let debounceTimer;
 let currentChipMap = null;
+let currentPackId = 'qa';
+let initGeneration = 0; // incremented on each init() call; stale calls self-abort
 
 function scheduleProcess() {
     if (!currentChipMap) return;
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-        if (processing) return;
+        const chipMap = currentChipMap;
+        if (!chipMap || processing) return;
         processing = true;
-        processAllItems(currentChipMap);
-        processing = false;
+        try {
+            processAllItems(chipMap);
+        } finally {
+            processing = false;
+        }
     }, 150);
 }
 
 const observer = new MutationObserver((mutations) => {
     if (processing) return;
-    // Only act if a check-item-name node was added/changed
-    const relevant = mutations.some(
-        (m) =>
-            [...m.addedNodes].some(
-                (n) =>
-                    n.nodeType === 1 &&
-                    (n.matches?.('[data-testid="check-item-name"]') ||
-                        n.querySelector?.('[data-testid="check-item-name"]')),
-            ) ||
-            (m.target.nodeType === 1 &&
-                m.target.closest?.('[data-testid="check-item-name"]')),
-    );
-    if (relevant) scheduleProcess();
+
+    let needsProcess = false;
+
+    for (const m of mutations) {
+        for (const n of m.addedNodes) {
+            if (n.nodeType !== 1) continue;
+            // Watch for the edit action toolbar (contains Assign / Due date).
+            // The due-date button's parentElement is the toolbar div.
+            if (n.matches?.('[data-testid="check-item-set-due-button"]')) {
+                injectEditChipRow(n.parentElement);
+            } else {
+                const dueBtn = n.querySelector?.(
+                    '[data-testid="check-item-set-due-button"]',
+                );
+                if (dueBtn) injectEditChipRow(dueBtn.parentElement);
+            }
+            // New check items rendered
+            if (
+                n.matches?.('[data-testid="check-item-name"]') ||
+                n.matches?.('[data-testid="check-item-container"]') ||
+                n.querySelector?.('[data-testid="check-item-name"]')
+            ) {
+                needsProcess = true;
+            }
+        }
+        if (
+            m.target.nodeType === 1 &&
+            m.target.closest?.('[data-testid="check-item-name"]')
+        ) {
+            needsProcess = true;
+        }
+    }
+
+    if (needsProcess) scheduleProcess();
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
@@ -222,6 +335,7 @@ observer.observe(document.body, { childList: true, subtree: true });
 // ─── Initialise ───────────────────────────────────────────────────────────────
 
 async function init(settings) {
+    const gen = ++initGeneration; // capture this call's generation
     applyStyles(settings);
 
     if (!settings.chipsEnabled) {
@@ -231,16 +345,26 @@ async function init(settings) {
     }
 
     const packs = await loadPacks();
+    if (gen !== initGeneration) return; // a newer init() has already taken over
+
     const pack = getPackById(packs, settings.activeChipPack);
     const chipColors = settings.chipColors || {};
-    currentChipMap = buildChipMap(pack, chipColors);
+    // Build locally — don't read currentChipMap after the await or a concurrent
+    // init() may have set it to null in the meantime.
+    const chipMap = settings.chipColorsEnabled
+        ? buildChipMap(pack, chipColors)
+        : {};
+
+    currentChipMap = chipMap;
+    currentPackId = pack.id;
 
     processing = true;
-    processAllItems(currentChipMap);
-    processing = false;
+    try {
+        processAllItems(chipMap);
+    } finally {
+        processing = false;
+    }
 }
-
-const STORAGE_KEYS = Object.keys(DEFAULTS);
 
 chrome.storage.sync.get(DEFAULTS, init);
 

@@ -3,17 +3,43 @@ const DEFAULTS = {
     showCheckIcon: true,
     completedColor: '#a6da58',
     chipsEnabled: true,
+    chipColorsEnabled: true,
     activeChipPack: 'qa',
     chipColors: {},
+    hideComments: false,
 };
 
 const noStrikethroughEl = document.getElementById('noStrikethrough');
 const showCheckIconEl = document.getElementById('showCheckIcon');
+const hideCommentsEl = document.getElementById('hideComments');
 const customColorEl = document.getElementById('customColor');
 const swatches = document.querySelectorAll('.swatch');
 const savedEl = document.getElementById('saved');
+const badgesNavRowEl = document.getElementById('badgesNavRow');
+
+// ─── View navigation ──────────────────────────────────────────────────────────
+const viewMain = document.getElementById('view-main');
+const viewBadges = document.getElementById('view-badges');
+document.getElementById('btn-badges').addEventListener('click', () => {
+    viewMain.classList.add('hidden');
+    viewBadges.classList.remove('hidden');
+});
+document.getElementById('btn-back').addEventListener('click', () => {
+    viewBadges.classList.add('hidden');
+    viewMain.classList.remove('hidden');
+});
+
+function setBadgesNavVisible(enabled) {
+    badgesNavRowEl.classList.toggle('hidden', !enabled);
+}
 
 let saveTimer;
+let debounceTimers = {};
+
+function debounce(key, fn, delay = 400) {
+    clearTimeout(debounceTimers[key]);
+    debounceTimers[key] = setTimeout(fn, delay);
+}
 
 function showSaved() {
     savedEl.style.display = 'block';
@@ -40,6 +66,9 @@ function setActiveSwatch(color) {
 chrome.storage.sync.get(DEFAULTS, (settings) => {
     noStrikethroughEl.checked = settings.noStrikethrough;
     showCheckIconEl.checked = settings.showCheckIcon;
+    hideCommentsEl.checked = settings.hideComments;
+    chipsEnabledEl.checked = settings.chipsEnabled;
+    setBadgesNavVisible(settings.chipsEnabled);
 
     // Check if color matches a swatch, otherwise treat as custom
     const swatchColors = Array.from(swatches).map((s) => s.dataset.color);
@@ -63,8 +92,18 @@ showCheckIconEl.addEventListener('change', () => {
     save({ showCheckIcon: showCheckIconEl.checked });
 });
 
+hideCommentsEl.addEventListener('change', () => {
+    save({ hideComments: hideCommentsEl.checked });
+});
+
 swatches.forEach((swatch) => {
     swatch.addEventListener('click', () => {
+        if (swatch.dataset.color === '__custom__') {
+            // Visual-only — the native <label> forwards the click to the color
+            // input, which fires 'input' and handles saving.
+            setActiveSwatch('__custom__');
+            return;
+        }
         setActiveSwatch(swatch.dataset.color);
         if (swatch.dataset.color) customColorEl.value = swatch.dataset.color;
         save({ completedColor: swatch.dataset.color });
@@ -73,22 +112,30 @@ swatches.forEach((swatch) => {
 
 customColorEl.addEventListener('input', () => {
     setActiveSwatch('__custom__');
-    save({ completedColor: customColorEl.value });
+    debounce(
+        'completedColor',
+        () => save({ completedColor: customColorEl.value }),
+        800,
+    );
 });
 
 // ─── Chip pack UI ─────────────────────────────────────────────────────────────
 
 const chipsEnabledEl = document.getElementById('chipsEnabled');
+const chipColorsEl = document.getElementById('chipColorsEnabled');
 const chipPackEl = document.getElementById('chipPack');
 const chipListEl = document.getElementById('chipList');
 
 let allPacks = [];
+let cachedPacks = null;
 
 async function loadPacks() {
+    if (cachedPacks) return cachedPacks;
     const url = chrome.runtime.getURL('chips.json');
     const res = await fetch(url);
     const data = await res.json();
-    return data.packs;
+    cachedPacks = data.packs;
+    return cachedPacks;
 }
 
 function hexToRgba(hex, alpha) {
@@ -133,19 +180,35 @@ function renderChipList(pack, chipColors) {
             preview.style.background = hexToRgba(newColor, 0.15);
             preview.style.color = newColor;
             colorBtn.style.background = newColor;
-            chrome.storage.sync.get(DEFAULTS, (current) => {
-                const colors = Object.assign({}, current.chipColors, {
-                    [chip.label]: newColor,
-                });
-                save({ chipColors: colors });
-            });
+            debounce(
+                `chip-${chip.label}`,
+                () => {
+                    // Read once, merge, write once — avoids double-get that can
+                    // push past the MAX_WRITE_OPERATIONS_PER_MINUTE quota.
+                    chrome.storage.sync.get(DEFAULTS, (current) => {
+                        const colors = Object.assign(
+                            {},
+                            current.chipColors || {},
+                            {
+                                [chip.label]: newColor,
+                            },
+                        );
+                        const next = Object.assign({}, current, {
+                            chipColors: colors,
+                        });
+                        chrome.storage.sync.set(next, showSaved);
+                    });
+                },
+                800,
+            );
         });
 
         resetBtn.addEventListener('click', () => {
             chrome.storage.sync.get(DEFAULTS, (current) => {
                 const colors = Object.assign({}, current.chipColors);
                 delete colors[chip.label];
-                save({ chipColors: colors });
+                const next = Object.assign({}, current, { chipColors: colors });
+                chrome.storage.sync.set(next, showSaved);
                 preview.style.background = hexToRgba(chip.color, 0.15);
                 preview.style.color = chip.color;
                 colorBtn.style.background = chip.color;
@@ -171,35 +234,46 @@ function populatePackSelect(packs, activePackId) {
     }
 }
 
+const colorBadgesSectionEl = document.getElementById('colorBadgesSection');
+
+function setColorBadgesVisible(enabled) {
+    colorBadgesSectionEl.classList.toggle('hidden', !enabled);
+}
+
 async function initChipUI(settings) {
     allPacks = await loadPacks();
     populatePackSelect(allPacks, settings.activeChipPack);
-    chipsEnabledEl.checked = settings.chipsEnabled;
+    chipColorsEl.checked = settings.chipColorsEnabled;
 
     const pack =
         allPacks.find((p) => p.id === settings.activeChipPack) || allPacks[0];
     renderChipList(pack, settings.chipColors || {});
-
-    chipListEl.style.opacity = settings.chipsEnabled ? '1' : '0.4';
-    chipListEl.style.pointerEvents = settings.chipsEnabled ? '' : 'none';
-    chipPackEl.disabled = !settings.chipsEnabled;
+    setColorBadgesVisible(settings.chipColorsEnabled);
 }
 
 chipsEnabledEl.addEventListener('change', () => {
     const enabled = chipsEnabledEl.checked;
     save({ chipsEnabled: enabled });
-    chipListEl.style.opacity = enabled ? '1' : '0.4';
-    chipListEl.style.pointerEvents = enabled ? '' : 'none';
-    chipPackEl.disabled = !enabled;
+    setBadgesNavVisible(enabled);
+});
+
+chipColorsEl.addEventListener('change', () => {
+    const enabled = chipColorsEl.checked;
+    save({ chipColorsEnabled: enabled });
+    setColorBadgesVisible(enabled);
 });
 
 chipPackEl.addEventListener('change', () => {
     const packId = chipPackEl.value;
-    save({ activeChipPack: packId });
-    chrome.storage.sync.get(DEFAULTS, (settings) => {
+    // Single read → merge → write, then render with same data (avoids double read).
+    chrome.storage.sync.get(DEFAULTS, (current) => {
+        const next = Object.assign({}, current, { activeChipPack: packId });
+        chrome.storage.sync.set(next, showSaved);
         const pack = allPacks.find((p) => p.id === packId) || allPacks[0];
-        renderChipList(pack, settings.chipColors || {});
+        renderChipList(pack, current.chipColors || {});
     });
 });
 
-chrome.storage.sync.get(DEFAULTS, initChipUI);
+chrome.storage.sync.get(DEFAULTS, (settings) =>
+    initChipUI(settings).catch(console.error),
+);

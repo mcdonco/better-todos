@@ -1,11 +1,51 @@
-/*
- * Better Todos for Trello
- * Removes strikethrough formatting from completed checklist items.
- *
- * The strikethrough is painted by the first div inside [data-testid="check-item-name"].
- * CSS text-decoration painted by an ancestor cannot be cancelled on a descendant —
- * we must target the exact element that sets it.
- */
-[data-testid="check-item-container"]:has(input[aria-checked="true"]) [data-testid="check-item-name"] > div > div {
-  text-decoration: none !important;
+/* ─── Status badge chips ──────────────────────────────────────────────────── */
+/* Color and background are applied inline per-chip via JS. */
+
+.pt-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 5px;
+    vertical-align: middle;
+    text-decoration: none !important;
+    line-height: 1.6;
+    letter-spacing: 0.03em;
+}
+
+/* ─── Inline chip picker (shown in the checklist item edit form) ──────────── */
+
+.pt-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 0 8px;
+}
+
+.pt-picker-item {
+    background: var(--chip-bg, rgba(255, 255, 255, 0.06));
+    color: var(--chip-color, #c9d4df);
+    border: none;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    transition: filter 0.1s;
+    line-height: 1.6;
+}
+
+.pt-picker-item:hover {
+    filter: brightness(1.25);
+}
+
+.pt-picker-remove {
+    background: rgba(255, 255, 255, 0.04);
+    color: #8c9bab;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 20px;
 }
