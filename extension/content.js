@@ -122,7 +122,7 @@ function processItem(p, chipMap) {
 
     // Remove previously injected chips so we can re-process cleanly
     p.querySelectorAll('[data-pt-chip]').forEach((el) => {
-        el.replaceWith(document.createTextNode(`[${el.dataset.btChip}]`));
+        el.replaceWith(document.createTextNode(`[${el.dataset.ptChip}]`));
     });
 
     // Walk text nodes only — preserves existing <a> tags and other HTML
@@ -142,7 +142,7 @@ function processAllItems(chipMap) {
 
 function removeAllChips() {
     document.querySelectorAll('[data-pt-chip]').forEach((el) => {
-        el.replaceWith(document.createTextNode(`[${el.dataset.btChip}]`));
+        el.replaceWith(document.createTextNode(`[${el.dataset.ptChip}]`));
     });
 }
 
