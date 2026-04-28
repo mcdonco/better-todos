@@ -1,0 +1,33 @@
+{
+    "packs": [
+        {
+            "id": "qa",
+            "name": "QA",
+            "chips": [
+                { "label": "done", "color": "#a6da58" },
+                { "label": "feedback", "color": "#facc15" },
+                { "label": "blocked", "color": "#f87171" },
+                { "label": "review", "color": "#8abeff" }
+            ]
+        },
+        {
+            "id": "agile",
+            "name": "Agile",
+            "chips": [
+                { "label": "todo", "color": "#94a3b8" },
+                { "label": "in-progress", "color": "#8abeff" },
+                { "label": "done", "color": "#a6da58" },
+                { "label": "blocked", "color": "#f87171" }
+            ]
+        },
+        {
+            "id": "opinion",
+            "name": "Opinion",
+            "chips": [
+                { "label": "yes", "color": "#a6da58" },
+                { "label": "no", "color": "#f87171" },
+                { "label": "maybe", "color": "#facc15" }
+            ]
+        }
+    ]
+}

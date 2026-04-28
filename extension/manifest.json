@@ -24,5 +24,11 @@
             "matches": ["https://trello.com/*"],
             "js": ["content.js"]
         }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["chips.json"],
+            "matches": ["https://trello.com/*"]
+        }
     ]
 }
