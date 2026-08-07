@@ -12,21 +12,115 @@ const DEFAULTS = {
 const noStrikethroughEl = document.getElementById('noStrikethrough');
 const showCheckIconEl = document.getElementById('showCheckIcon');
 const hideCommentsEl = document.getElementById('hideComments');
-const customColorEl = document.getElementById('customColor');
-const swatches = document.querySelectorAll('.swatch');
+const customSwatchEl = document.getElementById('customSwatch');
+const colorPreviewEl = document.getElementById('colorPreview');
+const colorPickerPanel = document.getElementById('colorPickerPanel');
+const swatches = document.querySelectorAll('#colorPickerPanel .swatch');
 const savedEl = document.getElementById('saved');
 const badgesNavRowEl = document.getElementById('badgesNavRow');
+const versionEl = document.getElementById('ext-version');
+const chipsEnabledEl = document.getElementById('chipsEnabled');
+const chipColorsEl = document.getElementById('chipColorsEnabled');
+const chipPackEl = document.getElementById('chipPack');
+const chipListEl = document.getElementById('chipList');
+const colorBadgesSectionEl = document.getElementById('colorBadgesSection');
+
+const DEFAULT_PREVIEW = '#454f59';
+
+/** @type {HTMLInputElement | null} */
+let customColorEl = null;
+
+function setColorPreview(color) {
+    if (!colorPreviewEl) return;
+    if (!color) {
+        colorPreviewEl.style.background = DEFAULT_PREVIEW;
+        colorPreviewEl.dataset.color = '';
+        colorPreviewEl.title = 'Default';
+        return;
+    }
+    colorPreviewEl.style.background = color;
+    colorPreviewEl.dataset.color = color;
+    colorPreviewEl.title = color;
+}
+
+function setColorPickerOpen(open) {
+    if (!colorPickerPanel || !colorPreviewEl) return;
+    colorPickerPanel.classList.toggle('hidden', !open);
+    colorPreviewEl.classList.toggle('is-open', open);
+    colorPreviewEl.setAttribute('aria-expanded', String(open));
+}
+
+/** Native color inputs are expensive — create only when the user picks custom. */
+function ensureCustomColorInput() {
+    if (customColorEl) return customColorEl;
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.id = 'customColor';
+    input.value =
+        (settingsCache && settingsCache.completedColor) || '#a6da58';
+    input.addEventListener('input', () => {
+        setActiveSwatch('__custom__');
+        if (customSwatchEl) customSwatchEl.style.background = input.value;
+        setColorPreview(input.value);
+        setColorPickerOpen(false);
+        debounce(
+            'completedColor',
+            () => save({ completedColor: input.value }),
+            800,
+        );
+    });
+    customSwatchEl.appendChild(input);
+    customColorEl = input;
+    return input;
+}
 
 // ─── View navigation ──────────────────────────────────────────────────────────
+const popupChrome = document.getElementById('popup-chrome');
 const viewMain = document.getElementById('view-main');
 const viewBadges = document.getElementById('view-badges');
+const viewClipboard = document.getElementById('view-clipboard');
+const tabSettings = document.getElementById('tab-settings');
+const tabClipboard = document.getElementById('tab-clipboard');
+
+let chipUiReady = false;
+/** @type {object | null} */
+let settingsCache = null;
+/** @type {object[] | null} */
+let allPacks = null;
+
+function setTabActive(tab) {
+    const isSettings = tab === tabSettings;
+    tabSettings.classList.toggle('active', isSettings);
+    tabClipboard.classList.toggle('active', !isSettings);
+    tabSettings.setAttribute('aria-selected', String(isSettings));
+    tabClipboard.setAttribute('aria-selected', String(!isSettings));
+}
+
+function showView(view) {
+    const inBadges = view === viewBadges;
+    popupChrome.classList.toggle('hidden', inBadges);
+    viewMain.classList.toggle('hidden', view !== viewMain);
+    viewBadges.classList.toggle('hidden', !inBadges);
+    viewClipboard.classList.toggle('hidden', view !== viewClipboard);
+
+    if (view === viewMain) setTabActive(tabSettings);
+    if (view === viewClipboard) {
+        setTabActive(tabClipboard);
+        globalThis.PrestoPopupStaging?.onShow?.();
+    }
+    if (inBadges) {
+        ensureChipUI().catch(console.error);
+    }
+}
+
+tabSettings.addEventListener('click', () => showView(viewMain));
+tabClipboard.addEventListener('click', () => showView(viewClipboard));
+
 document.getElementById('btn-badges').addEventListener('click', () => {
-    viewMain.classList.add('hidden');
-    viewBadges.classList.remove('hidden');
+    showView(viewBadges);
 });
 document.getElementById('btn-back').addEventListener('click', () => {
-    viewBadges.classList.add('hidden');
-    viewMain.classList.remove('hidden');
+    showView(viewMain);
 });
 
 function setBadgesNavVisible(enabled) {
@@ -52,6 +146,7 @@ function showSaved() {
 function save(partial) {
     chrome.storage.sync.get(DEFAULTS, (current) => {
         const next = Object.assign({}, current, partial);
+        settingsCache = next;
         chrome.storage.sync.set(next, showSaved);
     });
 }
@@ -62,26 +157,41 @@ function setActiveSwatch(color) {
     );
 }
 
-// Load saved settings and populate UI
-chrome.storage.sync.get(DEFAULTS, (settings) => {
+function applyMainSettings(settings) {
+    settingsCache = settings;
     noStrikethroughEl.checked = settings.noStrikethrough;
     showCheckIconEl.checked = settings.showCheckIcon;
     hideCommentsEl.checked = settings.hideComments;
     chipsEnabledEl.checked = settings.chipsEnabled;
     setBadgesNavVisible(settings.chipsEnabled);
 
-    // Check if color matches a swatch, otherwise treat as custom
+    const color = settings.completedColor || '';
+    setColorPreview(color);
+
     const swatchColors = Array.from(swatches).map((s) => s.dataset.color);
-    if (swatchColors.includes(settings.completedColor)) {
-        setActiveSwatch(settings.completedColor);
-        if (settings.completedColor)
-            customColorEl.value = settings.completedColor;
-    } else if (settings.completedColor) {
-        customColorEl.value = settings.completedColor;
-        setActiveSwatch('__custom__'); // none of the swatches
+    if (swatchColors.includes(color)) {
+        setActiveSwatch(color);
+        if (color && customColorEl) customColorEl.value = color;
+    } else if (color) {
+        if (customSwatchEl) customSwatchEl.style.background = color;
+        if (customColorEl) customColorEl.value = color;
+        setActiveSwatch('__custom__');
     } else {
         setActiveSwatch('');
     }
+}
+
+// Single storage read for the settings tab — chip UI loads later
+chrome.storage.sync.get(DEFAULTS, applyMainSettings);
+
+// Defer non-critical work until after first paint
+requestAnimationFrame(() => {
+    if (versionEl) {
+        versionEl.textContent = `v${chrome.runtime.getManifest().version}`;
+    }
+    const s = document.createElement('script');
+    s.src = 'popup-staging.js';
+    document.body.appendChild(s);
 });
 
 noStrikethroughEl.addEventListener('change', () => {
@@ -96,46 +206,37 @@ hideCommentsEl.addEventListener('change', () => {
     save({ hideComments: hideCommentsEl.checked });
 });
 
+colorPreviewEl?.addEventListener('click', () => {
+    const open = colorPickerPanel?.classList.contains('hidden');
+    setColorPickerOpen(!!open);
+});
+
 swatches.forEach((swatch) => {
     swatch.addEventListener('click', () => {
         if (swatch.dataset.color === '__custom__') {
-            // Visual-only — the native <label> forwards the click to the color
-            // input, which fires 'input' and handles saving.
             setActiveSwatch('__custom__');
+            const input = ensureCustomColorInput();
+            input.click();
             return;
         }
-        setActiveSwatch(swatch.dataset.color);
-        if (swatch.dataset.color) customColorEl.value = swatch.dataset.color;
-        save({ completedColor: swatch.dataset.color });
+        const color = swatch.dataset.color || '';
+        setActiveSwatch(color);
+        setColorPreview(color);
+        if (color && customColorEl) customColorEl.value = color;
+        save({ completedColor: color });
+        setColorPickerOpen(false);
     });
 });
 
-customColorEl.addEventListener('input', () => {
-    setActiveSwatch('__custom__');
-    debounce(
-        'completedColor',
-        () => save({ completedColor: customColorEl.value }),
-        800,
-    );
-});
-
-// ─── Chip pack UI ─────────────────────────────────────────────────────────────
-
-const chipsEnabledEl = document.getElementById('chipsEnabled');
-const chipColorsEl = document.getElementById('chipColorsEnabled');
-const chipPackEl = document.getElementById('chipPack');
-const chipListEl = document.getElementById('chipList');
-
-let allPacks = [];
-let cachedPacks = null;
+// ─── Chip pack UI (lazy — only when Status badges view opens) ─────────────────
 
 async function loadPacks() {
-    if (cachedPacks) return cachedPacks;
+    if (allPacks) return allPacks;
     const url = chrome.runtime.getURL('chips.json');
     const res = await fetch(url);
     const data = await res.json();
-    cachedPacks = data.packs;
-    return cachedPacks;
+    allPacks = data.packs;
+    return allPacks;
 }
 
 function hexToRgba(hex, alpha) {
@@ -146,8 +247,9 @@ function hexToRgba(hex, alpha) {
 }
 
 function renderChipList(pack, chipColors) {
-    chipListEl.innerHTML = '';
+    chipListEl.replaceChildren();
 
+    const frag = document.createDocumentFragment();
     for (const chip of pack.chips) {
         const color = chipColors[chip.label] || chip.color;
 
@@ -183,19 +285,16 @@ function renderChipList(pack, chipColors) {
             debounce(
                 `chip-${chip.label}`,
                 () => {
-                    // Read once, merge, write once — avoids double-get that can
-                    // push past the MAX_WRITE_OPERATIONS_PER_MINUTE quota.
                     chrome.storage.sync.get(DEFAULTS, (current) => {
                         const colors = Object.assign(
                             {},
                             current.chipColors || {},
-                            {
-                                [chip.label]: newColor,
-                            },
+                            { [chip.label]: newColor },
                         );
                         const next = Object.assign({}, current, {
                             chipColors: colors,
                         });
+                        settingsCache = next;
                         chrome.storage.sync.set(next, showSaved);
                     });
                 },
@@ -208,6 +307,7 @@ function renderChipList(pack, chipColors) {
                 const colors = Object.assign({}, current.chipColors);
                 delete colors[chip.label];
                 const next = Object.assign({}, current, { chipColors: colors });
+                settingsCache = next;
                 chrome.storage.sync.set(next, showSaved);
                 preview.style.background = hexToRgba(chip.color, 0.15);
                 preview.style.color = chip.color;
@@ -219,34 +319,45 @@ function renderChipList(pack, chipColors) {
         row.appendChild(preview);
         row.appendChild(colorBtn);
         row.appendChild(resetBtn);
-        chipListEl.appendChild(row);
+        frag.appendChild(row);
     }
+    chipListEl.appendChild(frag);
 }
 
 function populatePackSelect(packs, activePackId) {
-    chipPackEl.innerHTML = '';
+    chipPackEl.replaceChildren();
+    const frag = document.createDocumentFragment();
     for (const pack of packs) {
         const opt = document.createElement('option');
         opt.value = pack.id;
         opt.textContent = pack.name;
         if (pack.id === activePackId) opt.selected = true;
-        chipPackEl.appendChild(opt);
+        frag.appendChild(opt);
     }
+    chipPackEl.appendChild(frag);
 }
-
-const colorBadgesSectionEl = document.getElementById('colorBadgesSection');
 
 function setColorBadgesVisible(enabled) {
     colorBadgesSectionEl.classList.toggle('hidden', !enabled);
 }
 
-async function initChipUI(settings) {
-    allPacks = await loadPacks();
-    populatePackSelect(allPacks, settings.activeChipPack);
+async function ensureChipUI() {
+    if (chipUiReady) return;
+    chipUiReady = true;
+
+    const settings =
+        settingsCache ||
+        (await new Promise((resolve) =>
+            chrome.storage.sync.get(DEFAULTS, resolve),
+        ));
+    settingsCache = settings;
+
+    const packs = await loadPacks();
+    populatePackSelect(packs, settings.activeChipPack);
     chipColorsEl.checked = settings.chipColorsEnabled;
 
     const pack =
-        allPacks.find((p) => p.id === settings.activeChipPack) || allPacks[0];
+        packs.find((p) => p.id === settings.activeChipPack) || packs[0];
     renderChipList(pack, settings.chipColors || {});
     setColorBadgesVisible(settings.chipColorsEnabled);
 }
@@ -265,15 +376,11 @@ chipColorsEl.addEventListener('change', () => {
 
 chipPackEl.addEventListener('change', () => {
     const packId = chipPackEl.value;
-    // Single read → merge → write, then render with same data (avoids double read).
     chrome.storage.sync.get(DEFAULTS, (current) => {
         const next = Object.assign({}, current, { activeChipPack: packId });
+        settingsCache = next;
         chrome.storage.sync.set(next, showSaved);
-        const pack = allPacks.find((p) => p.id === packId) || allPacks[0];
-        renderChipList(pack, current.chipColors || {});
+        const pack = (allPacks || []).find((p) => p.id === packId) || allPacks?.[0];
+        if (pack) renderChipList(pack, current.chipColors || {});
     });
 });
-
-chrome.storage.sync.get(DEFAULTS, (settings) =>
-    initChipUI(settings).catch(console.error),
-);

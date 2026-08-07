@@ -1,10 +1,6 @@
 const STYLE_ID = 'presto-styles';
-
-const SELECTOR_DIV =
-    '[data-testid="check-item-container"]:has(input[aria-checked="true"]) [data-testid="check-item-name"] > div > div';
-const SELECTOR_P =
-    '[data-testid="check-item-container"]:has(input[aria-checked="true"]) [data-testid="check-item-name"] p';
-
+const CLASS_COMPLETED = 'pt-completed';
+const SELECTOR_ITEM = '[data-testid="check-item-container"]';
 const SELECTOR_ALL_P = '[data-testid="check-item-name"] p';
 
 const DEFAULTS = {
@@ -111,7 +107,54 @@ function processTextNode(textNode, chipMap) {
     }
 }
 
-function processItem(p, chipMap) {
+function isPrestoChipNode(n) {
+    return (
+        n.nodeType === 1 &&
+        (n.hasAttribute?.('data-pt-chip') ||
+            n.classList?.contains('pt-chip') ||
+            n.classList?.contains('pt-chip-row') ||
+            n.classList?.contains('pt-picker-item'))
+    );
+}
+
+/** True when raw `[label]` text still needs converting (or chips need refresh). */
+function hasRawChipSyntax(root) {
+    if (!root) return false;
+    if (root.nodeType === Node.TEXT_NODE) {
+        const v = root.nodeValue || '';
+        return v.includes('[') && makeChipRe().test(v);
+    }
+    if (root.nodeType !== Node.ELEMENT_NODE) return false;
+    // Fast reject: no brackets in the subtree text
+    const sample = root.textContent || '';
+    if (!sample.includes('[')) return false;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+        const v = node.nodeValue || '';
+        if (v.includes('[') && makeChipRe().test(v)) return true;
+    }
+    return false;
+}
+
+function isPrestoUiNode(n) {
+    return (
+        n.nodeType === 1 &&
+        (isPrestoChipNode(n) ||
+            n.id === 'pt-toast' ||
+            n.id === 'pt-toast-stack' ||
+            n.classList?.contains('pt-copy-btn') ||
+            n.classList?.contains('pt-paste-btn') ||
+            n.classList?.contains('pt-clipboard-actions') ||
+            n.classList?.contains('pt-toast') ||
+            n.classList?.contains('pt-toast-stack') ||
+            n.closest?.(
+                '#pt-toast-stack, #pt-toast, .pt-copy-btn, .pt-paste-btn, .pt-clipboard-actions, .pt-chip-row',
+            ))
+    );
+}
+
+function processItem(p, chipMap, { force = false } = {}) {
     // Skip if inside an active Trello editor
     if (
         p.closest('[contenteditable="true"]') ||
@@ -119,6 +162,9 @@ function processItem(p, chipMap) {
     ) {
         return;
     }
+
+    // Already converted and nothing new to parse — avoid strip/rebuild churn
+    if (!force && !hasRawChipSyntax(p)) return;
 
     // Remove previously injected chips so we can re-process cleanly
     p.querySelectorAll('[data-pt-chip]').forEach((el) => {
@@ -133,11 +179,11 @@ function processItem(p, chipMap) {
     for (const tn of textNodes) processTextNode(tn, chipMap);
 }
 
-function processAllItems(chipMap) {
+function processAllItems(chipMap, { force = false } = {}) {
     if (!chipMap) return;
     document
         .querySelectorAll(SELECTOR_ALL_P)
-        .forEach((p) => processItem(p, chipMap));
+        .forEach((p) => processItem(p, chipMap, { force }));
 }
 
 function removeAllChips() {
@@ -229,6 +275,50 @@ function applyChipToItem(editContainer, label) {
     textarea.setSelectionRange(newText.length, newText.length);
 }
 
+// ─── Completed / layout classes (avoid expensive :has() selectors) ────────────
+
+function isItemCompleted(container) {
+    const input = container.querySelector(
+        'input[aria-checked], input[type="checkbox"]',
+    );
+    if (!input) return false;
+    return (
+        input.getAttribute('aria-checked') === 'true' || input.checked === true
+    );
+}
+
+function syncCompletedClass(container) {
+    if (!(container instanceof Element)) return;
+    container.classList.toggle(CLASS_COMPLETED, isItemCompleted(container));
+}
+
+function syncCompletedIn(scope) {
+    const root = scope || globalThis.PrestoDom?.cardRoot?.() || document;
+    root.querySelectorAll?.(SELECTOR_ITEM)?.forEach(syncCompletedClass);
+}
+
+function syncLayoutClasses(hideComments) {
+    document.documentElement.classList.toggle('pt-hide-comments', !!hideComments);
+
+    document
+        .querySelectorAll('[data-testid="card-back-panel"]')
+        .forEach((el) => {
+            el.closest('aside')?.classList.toggle(
+                'pt-comments-aside',
+                !!hideComments,
+            );
+        });
+
+    document
+        .querySelectorAll('[data-testid="checklist-container"]')
+        .forEach((el) => {
+            el.parentElement?.classList.toggle(
+                'pt-checklist-column',
+                !!hideComments,
+            );
+        });
+}
+
 // ─── CSS styles ───────────────────────────────────────────────────────────────
 
 function buildCSS(settings) {
@@ -242,19 +332,12 @@ function buildCSS(settings) {
     if (s.completedColor) {
         divRules.push(`color: ${s.completedColor} !important;`);
     }
+    // Class-based — no :has() style recalc on every DOM change
     if (divRules.length) {
-        css += `${SELECTOR_DIV} { ${divRules.join(' ')} }\n`;
+        css += `.${CLASS_COMPLETED} [data-testid="check-item-name"] > div > div { ${divRules.join(' ')} }\n`;
     }
     if (s.showCheckIcon) {
-        css += `${SELECTOR_P}::after { content: " ✓"; }\n`;
-    }
-
-    if (s.hideComments) {
-        // Hide the comments/activity aside panel
-        css += `aside:has([data-testid="card-back-panel"]) { display: none !important; }\n`;
-        // Remove max-width from the main content column and checklist headings
-        css += `div:has(> [data-testid="checklist-container"]) { max-width: none !important; flex: 1 1 auto !important; }\n`;
-        css += `hgroup { max-width: none !important; }\n`;
+        css += `.${CLASS_COMPLETED} [data-testid="check-item-name"] p::after { content: " ✓"; }\n`;
     }
 
     return css;
@@ -268,6 +351,8 @@ function applyStyles(settings) {
         document.head.appendChild(el);
     }
     el.textContent = buildCSS(settings);
+    syncLayoutClasses(settings.hideComments);
+    syncCompletedIn();
 }
 
 // ─── MutationObserver ─────────────────────────────────────────────────────────
@@ -277,31 +362,81 @@ let currentChipMap = null;
 let currentPackId = 'qa';
 let initGeneration = 0; // incremented on each init() call; stale calls self-abort
 
-function scheduleProcess() {
+/** @type {Set<Element>} */
+let pendingRoots = new Set();
+let pendingForce = false;
+
+function scheduleProcess(roots, { force = false } = {}) {
     if (!currentChipMap) return;
+    if (force) pendingForce = true;
+    if (roots) {
+        for (const r of roots) {
+            if (r?.nodeType === 1) pendingRoots.add(r);
+        }
+    }
     clearTimeout(debounceTimer);
+    // While Presto is bulk-pasting, wait for the burst to finish
+    const delay = globalThis.PrestoPasting ? 400 : 200;
     debounceTimer = setTimeout(() => {
         const chipMap = currentChipMap;
         if (!chipMap || processing) return;
+        const forceNow = pendingForce;
+        const rootsNow = pendingRoots;
+        pendingForce = false;
+        pendingRoots = new Set();
         processing = true;
         try {
-            processAllItems(chipMap);
+            if (forceNow || rootsNow.size === 0) {
+                processAllItems(chipMap, { force: forceNow });
+            } else {
+                for (const root of rootsNow) {
+                    if (!root.isConnected) continue;
+                    if (root.matches?.(SELECTOR_ALL_P)) {
+                        processItem(root, chipMap);
+                    } else {
+                        root
+                            .querySelectorAll?.(SELECTOR_ALL_P)
+                            ?.forEach((p) => processItem(p, chipMap));
+                    }
+                }
+            }
         } finally {
             processing = false;
         }
-    }, 150);
+    }, delay);
 }
 
-const observer = new MutationObserver((mutations) => {
+function onDomMutations(mutations) {
     if (processing) return;
 
-    let needsProcess = false;
+    // Empty list = card retarget signal from PrestoDom
+    if (!mutations.length) {
+        if (document.documentElement.classList.contains('pt-hide-comments')) {
+            syncLayoutClasses(true);
+        }
+        syncCompletedIn();
+        return;
+    }
+
+    /** @type {Element[]} */
+    const roots = [];
+    let layoutDirty = false;
 
     for (const m of mutations) {
+        // Checkbox toggles — cheap class flip, no :has() needed
+        if (
+            m.type === 'attributes' &&
+            m.attributeName === 'aria-checked' &&
+            m.target instanceof Element
+        ) {
+            const item = m.target.closest(SELECTOR_ITEM);
+            if (item) syncCompletedClass(item);
+            continue;
+        }
+
         for (const n of m.addedNodes) {
-            if (n.nodeType !== 1) continue;
-            // Watch for the edit action toolbar (contains Assign / Due date).
-            // The due-date button's parentElement is the toolbar div.
+            if (n.nodeType !== 1 || isPrestoUiNode(n)) continue;
+
             if (n.matches?.('[data-testid="check-item-set-due-button"]')) {
                 injectEditChipRow(n.parentElement);
             } else {
@@ -310,27 +445,62 @@ const observer = new MutationObserver((mutations) => {
                 );
                 if (dueBtn) injectEditChipRow(dueBtn.parentElement);
             }
-            // New check items rendered
-            if (
+
+            if (n.matches?.(SELECTOR_ITEM)) {
+                syncCompletedClass(n);
+                roots.push(n);
+            } else if (
                 n.matches?.('[data-testid="check-item-name"]') ||
-                n.matches?.('[data-testid="check-item-container"]') ||
                 n.querySelector?.('[data-testid="check-item-name"]')
             ) {
-                needsProcess = true;
+                const nested = n.querySelectorAll?.(SELECTOR_ITEM);
+                if (nested?.length) nested.forEach(syncCompletedClass);
+                else n.closest?.(SELECTOR_ITEM) && syncCompletedClass(n.closest(SELECTOR_ITEM));
+                roots.push(n);
+            }
+
+            if (
+                n.matches?.(
+                    '[data-testid="card-back-panel"], [data-testid="checklist-container"]',
+                ) ||
+                n.querySelector?.(
+                    '[data-testid="card-back-panel"], [data-testid="checklist-container"]',
+                )
+            ) {
+                layoutDirty = true;
             }
         }
+
         if (
             m.target.nodeType === 1 &&
-            m.target.closest?.('[data-testid="check-item-name"]')
+            m.target.closest?.('[data-testid="check-item-name"]') &&
+            !m.target.closest?.('[data-pt-chip], .pt-chip-row, .pt-copy-btn')
         ) {
-            needsProcess = true;
+            for (const n of m.addedNodes) {
+                if (n.nodeType === Node.TEXT_NODE && hasRawChipSyntax(n)) {
+                    const p = m.target.closest?.('p') || m.target;
+                    if (p) roots.push(p);
+                    break;
+                }
+                if (
+                    n.nodeType === 1 &&
+                    !isPrestoUiNode(n) &&
+                    hasRawChipSyntax(n)
+                ) {
+                    roots.push(n);
+                    break;
+                }
+            }
         }
     }
 
-    if (needsProcess) scheduleProcess();
-});
+    if (layoutDirty && document.documentElement.classList.contains('pt-hide-comments')) {
+        syncLayoutClasses(true);
+    }
+    if (roots.length) scheduleProcess(roots);
+}
 
-observer.observe(document.body, { childList: true, subtree: true });
+globalThis.PrestoDom?.subscribe(onDomMutations);
 
 // ─── Initialise ───────────────────────────────────────────────────────────────
 
@@ -358,18 +528,37 @@ async function init(settings) {
     currentChipMap = chipMap;
     currentPackId = pack.id;
 
-    processing = true;
-    try {
-        processAllItems(chipMap);
-    } finally {
-        processing = false;
-    }
+    syncCompletedIn();
+    scheduleProcess(null, { force: true });
 }
 
 chrome.storage.sync.get(DEFAULTS, init);
 
-chrome.storage.onChanged.addListener((_changes, area) => {
-    if (area === 'sync') {
-        chrome.storage.sync.get(DEFAULTS, init);
-    }
+const CHIP_SETTING_KEYS = new Set([
+    'chipsEnabled',
+    'chipColorsEnabled',
+    'activeChipPack',
+    'chipColors',
+]);
+const STYLE_SETTING_KEYS = new Set([
+    'noStrikethrough',
+    'showCheckIcon',
+    'completedColor',
+    'hideComments',
+]);
+
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'sync') return;
+    const keys = Object.keys(changes);
+    const touchesChips = keys.some((k) => CHIP_SETTING_KEYS.has(k));
+    const touchesStyle = keys.some((k) => STYLE_SETTING_KEYS.has(k));
+    if (!touchesChips && !touchesStyle) return;
+
+    chrome.storage.sync.get(DEFAULTS, (settings) => {
+        if (touchesStyle && !touchesChips) {
+            applyStyles(settings);
+            return;
+        }
+        init(settings);
+    });
 });

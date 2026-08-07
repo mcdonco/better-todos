@@ -8,108 +8,181 @@
     </head>
     <body>
         <div id="popup-container">
-            <!-- ─── Main view ──────────────────────────────────── -->
-            <div id="view-main" class="view">
+            <div id="popup-chrome">
                 <header>
+                    <img
+                        class="header-logo"
+                        src="icons/icon-16.png"
+                        width="20"
+                        height="20"
+                        alt=""
+                        aria-hidden="true" />
                     <h1>Presto for Trello</h1>
+                    <span
+                        id="ext-version"
+                        class="ext-version"
+                        aria-label="Extension version"></span>
                 </header>
 
-                <div class="settings">
-                    <div class="row">
-                        <label for="noStrikethrough"
-                            >Remove strikethrough</label
-                        >
-                        <label class="toggle">
-                            <input type="checkbox" id="noStrikethrough" />
-                            <span class="toggle-track"></span>
-                        </label>
-                    </div>
+                <nav class="popup-tabs" role="tablist" aria-label="Popup sections">
+                    <button
+                        type="button"
+                        id="tab-settings"
+                        class="popup-tab active"
+                        role="tab"
+                        aria-selected="true"
+                        aria-controls="view-main">
+                        Settings
+                    </button>
+                    <button
+                        type="button"
+                        id="tab-clipboard"
+                        class="popup-tab"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="view-clipboard">
+                        Clipboard
+                        <span
+                            id="pt-staged-count"
+                            class="pt-staged-count tab-count"
+                            hidden></span>
+                    </button>
+                </nav>
+            </div>
 
-                    <div class="row">
-                        <label for="showCheckIcon">Add ✓ icon after item</label>
-                        <label class="toggle">
-                            <input type="checkbox" id="showCheckIcon" />
-                            <span class="toggle-track"></span>
-                        </label>
-                    </div>
+            <!-- ─── Settings view ──────────────────────────────── -->
+            <div
+                id="view-main"
+                class="view"
+                role="tabpanel"
+                aria-labelledby="tab-settings">
+                <section class="feature-section" aria-labelledby="heading-appearance">
+                    <div class="section-heading" id="heading-appearance"
+                        >Appearance</div
+                    >
+                    <div class="settings">
+                        <div class="row">
+                            <label for="noStrikethrough"
+                                >Remove strikethrough</label
+                            >
+                            <label class="toggle">
+                                <input type="checkbox" id="noStrikethrough" />
+                                <span class="toggle-track"></span>
+                            </label>
+                        </div>
 
-                    <div class="row">
-                        <label for="hideComments">Hide comments panel</label>
-                        <label class="toggle">
-                            <input type="checkbox" id="hideComments" />
-                            <span class="toggle-track"></span>
-                        </label>
-                    </div>
+                        <div class="row">
+                            <label for="showCheckIcon"
+                                >Add ✓ icon after item</label
+                            >
+                            <label class="toggle">
+                                <input type="checkbox" id="showCheckIcon" />
+                                <span class="toggle-track"></span>
+                            </label>
+                        </div>
 
-                    <div class="row color-row">
-                        <label>Completed item text color</label>
-                        <div class="swatches">
+                        <div class="row color-row">
+                            <label>Completed item text color</label>
+                            <div class="color-control">
+                                <button
+                                    type="button"
+                                    class="swatch color-preview"
+                                    id="colorPreview"
+                                    title="Change color"
+                                    aria-label="Change completed item color"
+                                    aria-expanded="false"
+                                    aria-controls="colorPickerPanel"></button>
+                            </div>
                             <div
-                                class="swatch"
-                                data-color=""
-                                title="Default"></div>
-                            <div
-                                class="swatch"
-                                data-color="#a6da58"
-                                style="background: #a6da58"
-                                title="Green"></div>
-                            <div
-                                class="swatch"
-                                data-color="#cecfd2"
-                                style="background: #cecfd2"
-                                title="Grey"></div>
-                            <div
-                                class="swatch"
-                                data-color="#8abeff"
-                                style="background: #8abeff"
-                                title="Blue"></div>
-                            <label
-                                class="swatch swatch-custom"
-                                title="Custom color"
-                                id="customSwatch"
-                                data-color="__custom__">
-                                <input
-                                    type="color"
-                                    id="customColor"
-                                    value="#a6da58" />
+                                id="colorPickerPanel"
+                                class="color-picker-panel hidden">
+                                <div class="swatches">
+                                    <div
+                                        class="swatch"
+                                        data-color=""
+                                        title="Default"></div>
+                                    <div
+                                        class="swatch"
+                                        data-color="#a6da58"
+                                        style="background: #a6da58"
+                                        title="Green"></div>
+                                    <div
+                                        class="swatch"
+                                        data-color="#cecfd2"
+                                        style="background: #cecfd2"
+                                        title="Gray"></div>
+                                    <div
+                                        class="swatch"
+                                        data-color="#8abeff"
+                                        style="background: #8abeff"
+                                        title="Blue"></div>
+                                    <button
+                                        type="button"
+                                        class="swatch swatch-custom"
+                                        title="Custom color"
+                                        id="customSwatch"
+                                        data-color="__custom__"
+                                        aria-label="Custom color"></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="feature-section" aria-labelledby="heading-layout">
+                    <div class="section-heading" id="heading-layout">Layout</div>
+                    <div class="settings">
+                        <div class="row">
+                            <label for="hideComments"
+                                >Hide comments panel</label
+                            >
+                            <label class="toggle">
+                                <input type="checkbox" id="hideComments" />
+                                <span class="toggle-track"></span>
                             </label>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <div class="section-heading"> Status badges </div>
-
-                <div class="settings">
-                    <div class="row">
-                        <label for="chipsEnabled">Use status badges</label>
-                        <label class="toggle">
-                            <input type="checkbox" id="chipsEnabled" />
-                            <span class="toggle-track"></span>
-                        </label>
+                <section
+                    class="feature-section"
+                    aria-labelledby="heading-badges">
+                    <div class="section-heading" id="heading-badges"
+                        >Status badges</div
+                    >
+                    <div class="settings">
+                        <div class="row">
+                            <label for="chipsEnabled">Use status badges</label>
+                            <label class="toggle">
+                                <input type="checkbox" id="chipsEnabled" />
+                                <span class="toggle-track"></span>
+                            </label>
+                        </div>
                     </div>
-                </div>
-
-                <div id="badgesNavRow">
-                    <button
-                        id="btn-badges"
-                        class="nav-row"
-                        aria-label="Open status badges settings">
-                        <span class="nav-row-label">Status badge settings</span>
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            aria-hidden="true">
-                            <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                    </button>
-                </div>
+                    <div id="badgesNavRow">
+                        <button
+                            id="btn-badges"
+                            class="nav-row"
+                            aria-label="Open status badges settings">
+                            <span class="nav-row-label"
+                                >Status badge settings</span
+                            >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                aria-hidden="true">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </button>
+                    </div>
+                </section>
 
                 <footer
                     >Changes apply instantly &middot;
@@ -170,6 +243,43 @@
                     Users without the extension will see the original text with
                     brackets intact.</p
                 >
+
+                <footer
+                    >Changes apply instantly &middot;
+                    <a
+                        href="https://www.mcdon.co/presto"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >Support</a
+                    ></footer
+                >
+            </div>
+
+            <!-- ─── Clipboard view ──────────────────────────────── -->
+            <div
+                id="view-clipboard"
+                class="view hidden"
+                role="tabpanel"
+                aria-labelledby="tab-clipboard">
+                <div id="pt-staged-section" class="pt-staged-panel">
+                    <p id="pt-staged-empty" class="hint"
+                        >On a Trello card, click the clipboard icon next to a
+                        checklist item, then
+                        <strong>Paste (N)</strong> on another checklist.</p
+                    >
+                    <div
+                        id="pt-staged-list"
+                        class="pt-staged-list hidden"></div>
+                    <div class="pt-staged-actions">
+                        <button
+                            type="button"
+                            id="pt-staged-clear"
+                            class="pt-staged-clear hidden"
+                            disabled
+                            >Clear all</button
+                        >
+                    </div>
+                </div>
 
                 <footer
                     >Changes apply instantly &middot;

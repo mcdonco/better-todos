@@ -1,3 +1,18 @@
+/* ─── Layout helpers (class-based; avoid :has() in dynamic CSS) ───────────── */
+
+html.pt-hide-comments aside.pt-comments-aside {
+    display: none !important;
+}
+
+html.pt-hide-comments .pt-checklist-column {
+    max-width: none !important;
+    flex: 1 1 auto !important;
+}
+
+html.pt-hide-comments hgroup {
+    max-width: none !important;
+}
+
 /* ─── Status badge chips ──────────────────────────────────────────────────── */
 /* Color and background are applied inline per-chip via JS. */
 

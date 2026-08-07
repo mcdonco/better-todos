@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
     "name": "Presto for Trello",
-    "version": "1.2.1",
-    "description": "Customise Trello checklists: remove strikethrough, change completed item colour, add status badges, and hide the comments panel.",
+    "version": "1.3.41",
+    "description": "Customize Trello checklists: colors, badges, hide comments, and copy items between cards.",
     "icons": {
         "16": "icons/icon-16.png",
         "48": "icons/icon-48.png",
@@ -22,8 +22,13 @@
     "content_scripts": [
         {
             "matches": ["https://trello.com/*"],
-            "css": ["content.css"],
-            "js": ["content.js"]
+            "js": ["dom-bus.js"],
+            "run_at": "document_start"
+        },
+        {
+            "matches": ["https://trello.com/*"],
+            "css": ["content.css", "staging.css", "toast.css"],
+            "js": ["toast.js", "content.js", "staging.js"]
         }
     ],
     "web_accessible_resources": [
